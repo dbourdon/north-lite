@@ -41,8 +41,15 @@ def main() -> None:
     r = sub.add_parser("rag", help="answer from the handbook with citations")
     r.add_argument("question")
     r.add_argument("--docs", type=Path, default=DEFAULT_DOCS)
+    v = sub.add_parser("serve", help="run the HTTP service")
+    v.add_argument("--host", default="127.0.0.1")
+    v.add_argument("--port", type=int, default=8000)
     args = p.parse_args()
     if args.cmd == "stream":
         asyncio.run(_stream(args.prompt))
-    else:
+    elif args.cmd == "rag":
         asyncio.run(_rag(args.question, args.docs))
+    else:
+        import uvicorn
+
+        uvicorn.run("north_lite.app:create_app", factory=True, host=args.host, port=args.port)

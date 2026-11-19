@@ -94,24 +94,27 @@ class CohereClient:
         resp = await self._sdk.chat(
             model=self._s.chat_model,
             messages=[_to_sdk_message(m) for m in messages],
+            # Default citation mode: command-a-plus rejects mode="ACCURATE" (400).
             documents=sdk_docs or None,
         )
+        # Reasoning models also return a "thinking" block; only the text block is the answer.
         text = "".join(
             c.text
             for c in resp.message.content or []
             if isinstance(c, cohere.TextAssistantMessageResponseContentItem)
         )
-        citations = [
-            Citation(
-                start=c.start or 0,
-                end=c.end or 0,
-                text=c.text or "",
-                doc_ids=[
-                    s.id for s in c.sources or [] if isinstance(s, cohere.DocumentSource) and s.id
-                ],
-            )
-            for c in resp.message.citations or []
-        ]
+        citations: list[Citation] = []
+        for c in resp.message.citations or []:
+            # Citations on the thinking block have offsets into text we don't return.
+            if c.type not in (None, "TEXT_CONTENT"):
+                continue
+            doc_ids = [
+                s.id for s in c.sources or [] if isinstance(s, cohere.DocumentSource) and s.id
+            ]
+            if doc_ids:  # a citation that points at no document is not a citation
+                citations.append(
+                    Citation(start=c.start or 0, end=c.end or 0, text=c.text or "", doc_ids=doc_ids)
+                )
         return ChatResponse(text=text, citations=citations)
 
     async def stream_chat(self, messages: Sequence[Message]) -> AsyncIterator[str]:

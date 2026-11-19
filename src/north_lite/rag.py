@@ -5,9 +5,14 @@ import math
 from collections.abc import Sequence
 from pathlib import Path
 
-from pydantic import TypeAdapter
+from pydantic import BaseModel, TypeAdapter
 
 from north_lite.llm import ChatResponse, Document, LLMClient, Message, embed_many
+
+
+class SearchHit(BaseModel):
+    document: Document
+    score: float  # rerank relevance (0..1) when reranked, else cosine similarity
 
 
 def load_docs(path: Path) -> list[Document]:
@@ -30,22 +35,33 @@ class MiniRAG:
         texts = [f"{d.title}\n{d.text}" for d in self._docs]
         self._vectors = await embed_many(self._client, texts, "search_document")
 
-    async def retrieve(
+    @property
+    def ready(self) -> bool:
+        return bool(self._vectors)
+
+    async def search(
         self, query: str, k: int = 8, top_n: int = 3, rerank: bool = True
-    ) -> list[Document]:
+    ) -> list[SearchHit]:
         if not self._vectors:
             await self.index()
         # Different input_type for queries: the embed model is trained asymmetrically.
         [qvec] = await self._client.embed([query], "search_query")
-        ranked = sorted(
-            range(len(self._docs)), key=lambda i: cosine(qvec, self._vectors[i]), reverse=True
-        )
-        candidates = [self._docs[i] for i in ranked[:k]]
+        scored = sorted(
+            ((cosine(qvec, v), d) for v, d in zip(self._vectors, self._docs, strict=True)),
+            key=lambda pair: pair[0],
+            reverse=True,
+        )[:k]
         if not rerank:
-            return candidates[:top_n]
+            return [SearchHit(document=d, score=s) for s, d in scored[:top_n]]
         # Embeddings give cheap recall; the cross-encoder reranker gives precision.
+        candidates = [d for _, d in scored]
         hits = await self._client.rerank(query, [f"{d.title}\n{d.text}" for d in candidates], top_n)
-        return [candidates[h.index] for h in hits]
+        return [SearchHit(document=candidates[h.index], score=h.score) for h in hits]
+
+    async def retrieve(
+        self, query: str, k: int = 8, top_n: int = 3, rerank: bool = True
+    ) -> list[Document]:
+        return [h.document for h in await self.search(query, k, top_n, rerank)]
 
     async def answer(
         self, question: str, rerank: bool = True
