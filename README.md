@@ -114,10 +114,12 @@ helm test nl-$p -n nl-$p --logs              # checks the live service matches i
 - `helm test` runs a pod that checks streaming, rerank and cache behaviour against
   the profile's flags. With a NetworkPolicy, a second test pod under the same
   policy must fail to reach the internet.
-- That egress test fails on this WSL host: its 5.15 kernel lacks the nftables
-  support kindnet needs to enforce NetworkPolicy, so the policy is accepted but
-  ignored. The test exists to catch exactly that; it passes on clusters that
-  enforce policies (e.g. CI runners).
+- The egress test caught a real gap: kind's default CNI (kindnet) accepted the
+  NetworkPolicy but didn't enforce it, both on this WSL host and on GitHub
+  runners. CI therefore runs any profile with `networkPolicy.enabled: true` on a
+  kind cluster with **Calico** (`deploy/kind/calico.yaml`,
+  `scripts/install-calico.sh`). Calico doesn't start on this host's WSL 5.15
+  kernel either, so the air-gapped egress check is verified in CI only.
 
 ## Configuration
 
