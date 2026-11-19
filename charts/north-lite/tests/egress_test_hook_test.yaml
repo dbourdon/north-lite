@@ -1,0 +1,24 @@
+suite: egress test hook
+templates:
+  - templates/tests/test-egress.yaml
+set:
+  config.backend: fake
+tests:
+  - it: only exists when the NetworkPolicy is on
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: runs under the same policy label as the app
+    values:
+      - ../values-flags-airgapped.yaml
+    asserts:
+      - equal:
+          path: metadata.annotations["helm.sh/hook"]
+          value: test
+      - equal:
+          path: metadata.labels["north-lite.dev/egress-policy"]
+          value: RELEASE-NAME-north-lite
+      # Must NOT carry the Service selector labels, or it would receive traffic.
+      - notExists:
+          path: metadata.labels["app.kubernetes.io/name"]

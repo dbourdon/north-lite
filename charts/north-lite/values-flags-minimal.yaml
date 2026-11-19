@@ -1,0 +1,5 @@
+# Everything optional off: the smallest supported configuration.
+features:
+  rerank: false
+  streaming: false
+  cache: false

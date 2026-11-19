@@ -1,0 +1,5 @@
+# Full minus rerank: e.g. a customer without the rerank model licensed.
+features:
+  rerank: false
+  streaming: true
+  cache: true

@@ -1,0 +1,8 @@
+# CI and local test clusters: deterministic fake backend, no key, no quota.
+# Combine with one profile: -f values-ci.yaml -f values-flags-<profile>.yaml
+config:
+  backend: fake
+image:
+  repository: north-lite
+  tag: dev
+  pullPolicy: Never # image is loaded into kind, never pulled

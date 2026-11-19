@@ -1,0 +1,38 @@
+suite: networkpolicy
+templates:
+  - templates/networkpolicy.yaml
+set:
+  config.backend: fake
+tests:
+  - it: is off by default
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: air-gapped profile denies all egress
+    values:
+      - ../values-flags-airgapped.yaml
+    asserts:
+      - isKind:
+          of: NetworkPolicy
+      - equal:
+          path: spec.policyTypes
+          value: [Egress]
+      - equal:
+          path: spec.egress
+          value: []
+      - equal:
+          path: spec.podSelector.matchLabels["north-lite.dev/egress-policy"]
+          value: RELEASE-NAME-north-lite
+
+  - it: allows only DNS when allowDNS is on
+    set:
+      networkPolicy.enabled: true
+      networkPolicy.allowDNS: true
+    asserts:
+      - lengthEqual:
+          path: spec.egress
+          count: 1
+      - equal:
+          path: spec.egress[0].ports[0].port
+          value: 53

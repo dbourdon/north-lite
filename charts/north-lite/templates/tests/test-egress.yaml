@@ -1,0 +1,44 @@
+{{- /*
+`helm test` hook, only when the NetworkPolicy is on: a pod under the same policy
+(same policy label as the app) tries to reach the internet and must fail. This
+proves the policy is enforced, not just rendered: a CNI without NetworkPolicy
+support accepts the object and silently ignores it.
+*/ -}}
+{{- if .Values.networkPolicy.enabled }}
+apiVersion: v1
+kind: Pod
+metadata:
+  name: {{ include "north-lite.fullname" . }}-test-egress
+  labels:
+    {{- include "north-lite.testLabels" . | nindent 4 }}
+    {{- include "north-lite.policyLabels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": test
+    "helm.sh/hook-delete-policy": before-hook-creation
+spec:
+  restartPolicy: Never
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 10002
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+    - name: test
+      image: "{{ .Values.tests.image.repository }}:{{ .Values.tests.image.tag }}"
+      securityContext:
+        allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: true
+        capabilities:
+          drop: ["ALL"]
+      command: ["/bin/sh", "-c"]
+      args:
+        - |
+          # By IP, so the result doesn't depend on DNS being blocked too.
+          for url in https://1.1.1.1 https://api.cohere.ai; do
+            if curl -s -o /dev/null -m 5 "$url"; then
+              echo "FAIL: reached $url; egress is NOT blocked (does the CNI enforce NetworkPolicy?)"
+              exit 1
+            fi
+            echo "ok   blocked $url"
+          done
+{{- end }}

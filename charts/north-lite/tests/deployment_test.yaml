@@ -1,0 +1,70 @@
+suite: deployment
+# The checksum annotations include these, so they must be loaded too.
+templates:
+  - templates/deployment.yaml
+  - templates/configmap.yaml
+  - templates/secret.yaml
+tests:
+  - template: templates/deployment.yaml
+    it: has config and secret checksums (sha256) on the pod template
+    set:
+      config.backend: fake
+    asserts:
+      - matchRegex:
+          path: spec.template.metadata.annotations["checksum/config"]
+          pattern: ^[a-f0-9]{64}$
+      - matchRegex:
+          path: spec.template.metadata.annotations["checksum/secret"]
+          pattern: ^[a-f0-9]{64}$
+
+  - template: templates/deployment.yaml
+    it: reads the key from existingSecret
+    set:
+      apiKey.existingSecret: cohere-api-key
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: CO_API_KEY
+            valueFrom:
+              secretKeyRef:
+                name: cohere-api-key
+                key: CO_API_KEY
+
+  - template: templates/deployment.yaml
+    it: sets no key env var for the fake backend
+    set:
+      config.backend: fake
+    asserts:
+      - notExists:
+          path: spec.template.spec.containers[0].env
+
+  - template: templates/deployment.yaml
+    it: refuses the cohere backend without a key source
+    asserts:
+      - failedTemplate:
+          errorPattern: needs an API key
+
+  - template: templates/deployment.yaml
+    it: refuses an air-gapped install that would call the Cohere API
+    set:
+      apiKey.existingSecret: cohere-api-key
+      networkPolicy.enabled: true
+    asserts:
+      - failedTemplate:
+          errorPattern: can't reach the API
+
+  - template: templates/deployment.yaml
+    it: runs non-root with a read-only root filesystem
+    set:
+      config.backend: fake
+    asserts:
+      - equal:
+          path: spec.template.spec.securityContext.runAsNonRoot
+          value: true
+      - equal:
+          path: spec.template.spec.containers[0].securityContext.readOnlyRootFilesystem
+          value: true
+      - equal:
+          path: spec.template.spec.automountServiceAccountToken
+          value: false

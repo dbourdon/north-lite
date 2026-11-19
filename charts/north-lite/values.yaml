@@ -98,3 +98,17 @@ readinessProbe:
 nodeSelector: {}
 tolerations: []
 affinity: {}
+
+# Egress control. Enabled with no allowed egress = air-gapped: the pod can't reach
+# anything outside itself, which proves the profile makes no external calls.
+networkPolicy:
+  enabled: false
+  allowDNS: true
+  # Extra egress rules (NetworkPolicyEgressRule list), e.g. an in-cluster model server.
+  extraEgress: []
+
+# `helm test` hook: checks the running service matches its feature flags.
+tests:
+  image:
+    repository: curlimages/curl
+    tag: "8.11.1"
