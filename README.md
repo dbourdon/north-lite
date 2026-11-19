@@ -7,16 +7,38 @@ developer-experience platform work: Helm, feature-flag environments, CI, benchma
 
 ## CI
 
-`.github/workflows/ci.yaml` runs three jobs in parallel on every PR and push to `main`:
+`.github/workflows/ci.yaml` runs on every PR and push to `main`:
 
 | Job | What it checks |
 |---|---|
 | `python` | ruff, `mypy --strict`, `pytest -n auto -m "not live"` (fake backend: no key, no quota) |
 | `chart` | `ct lint` (yamllint, schema, Chart.yaml version bump on PRs), `helm unittest`, kubeconform on every flag profile |
 | `image` | Docker build with the GitHub Actions layer cache; pushed to GHCR only from `main` |
+| `e2e (<profile>)` | one leg per `values-flags-*.yaml`: kind cluster, `helm install`, `helm test` (flag checks; egress check for air-gapped). Diagnostics uploaded on failure |
+
+`python`, `chart` and `image` run in parallel; `e2e` waits for `chart`. The kind
+setup is a reusable composite action, `.github/actions/setup-kind-env`.
 
 Run the same checks locally: `uv run pytest -n auto`, `ct lint --config ct.yaml --all`,
 `helm unittest charts/north-lite`, `scripts/validate-chart.sh`.
+
+## Evals: a simulated user
+
+`north-lite eval` plays a user against a running service: it asks each question in
+`evals/handbook.jsonl` (20, worded differently from the docs), reads the answer, and
+follows up if unsatisfied. It reports retrieval hit rate, citation coverage and
+precision, answer accuracy and user satisfaction, and fails below a hit-rate gate
+(0.85, from the handbook's own "LLM evaluations" rule).
+
+```bash
+NL_BACKEND=fake uv run north-lite serve &               # or port-forward a kind release
+uv run north-lite eval                                   # scripted user: free, deterministic
+uv run north-lite eval --simulator llm --concurrency 1 --pace-s 16 --out report.json
+```
+
+With `--simulator llm`, Command A+ plays a new engineer. It only knows its goal, not
+the expected answer, so its "satisfied" verdict is independent of the keyword checks.
+A live run costs ~100–140 calls; see `docs/cohere-usage.md`.
 
 ## Run locally
 

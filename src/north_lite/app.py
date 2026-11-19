@@ -13,8 +13,9 @@ from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from typing import Annotated, Literal
 
+from cohere.core.api_error import ApiError
 from fastapi import APIRouter, Depends, FastAPI, HTTPException, Query, Request, Response
-from fastapi.responses import StreamingResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
 from north_lite.llm import Citation, LLMClient, Message, make_client
@@ -256,8 +257,28 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     yield
 
 
+async def upstream_error(request: Request, exc: Exception) -> JSONResponse:
+    """The LLM provider failed after our retries: say so, instead of a bare 500.
+
+    502 = "the server we depend on gave a bad answer" (not our bug); 503 + Retry-After
+    when we were rate-limited, so clients and load balancers back off instead of
+    hammering. The provider's status and error type are passed on for debugging.
+    """
+    assert isinstance(exc, ApiError)
+    body = exc.body if isinstance(exc.body, dict) else {}
+    detail = {
+        "detail": "upstream LLM error",
+        "upstream_status": exc.status_code,
+        "upstream_error": body.get("error_type") or body.get("message"),
+    }
+    if exc.status_code == 429:
+        return JSONResponse(detail, status_code=503, headers={"Retry-After": "60"})
+    return JSONResponse(detail, status_code=502)
+
+
 def create_app(settings: Settings | None = None) -> FastAPI:
     app = FastAPI(title="north-lite", lifespan=lifespan)
     app.state.settings = settings or Settings()
     app.include_router(router)
+    app.add_exception_handler(ApiError, upstream_error)
     return app

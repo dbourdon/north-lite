@@ -5,13 +5,15 @@ per month** across all endpoints (checked 2026-11-19, docs.cohere.com/docs/rate-
 
 ## Per-minute limits (trial)
 
-| Endpoint / model | Limit |
-|---|---|
-| Chat: Command A+, North Mini Code, reasoning models | 20 req/min |
-| Embed | 2,000 inputs/min |
-| Rerank | 10 req/min |
+The docs list per-endpoint limits (chat 20 req/min, rerank 10 req/min, embed
+2,000 inputs/min), but in practice the trial key is limited to **20 API calls per
+minute in total**. The API's own 429 says so ("limited to 20 API calls / minute"),
+and it sends no `Retry-After` header.
 
-429s are retried with backoff and jitter (`north_lite.retry`, `NL_MAX_ATTEMPTS`).
+So: `north_lite.retry` (backoff with jitter, `NL_MAX_ATTEMPTS`) smooths short
+bursts, but it gives up within seconds and can't wait out a one-minute window.
+Anything that makes many calls must **pace** itself: `north-lite eval --pace-s 16`
+spaces cases so ~5 calls per case stay under 20/min.
 
 ## What costs calls
 
@@ -22,7 +24,7 @@ per month** across all endpoints (checked 2026-11-19, docs.cohere.com/docs/rate-
 | `pytest -m live` | ~5 | stream + RAG + app RAG |
 | Service start with `NL_BACKEND=cohere` | 1 | embeds the 20-doc handbook once |
 | One `/chat` with `rag=true` | 3 | embed query + rerank + chat |
-| Day 7 eval run (20 questions) | ~60–100 | simulator + answer + judge per question |
+| Live eval, `--simulator llm` (20 questions) | ~100–140 | per case: simulator opening + verdict (2) + service embed/rerank/chat (3); follow-ups add ~4 |
 | OpenCode + North Mini Code | 1 per agent step | a small feature is ~50–200 |
 
 ## Budget for the remaining sprint
