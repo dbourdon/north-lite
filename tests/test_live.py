@@ -29,3 +29,20 @@ async def test_rag_real_returns_citations() -> None:
     assert "90" in resp.text
     assert any("build-logs" in c.doc_ids for c in resp.citations)
     assert "build-logs" in [d.id for d in retrieved]
+
+
+async def test_app_rag_chat_real() -> None:
+    import httpx
+
+    from north_lite.app import create_app
+
+    app = create_app(Settings(backend="cohere"))
+    async with app.router.lifespan_context(app):
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://t", timeout=60) as c:
+            body = {"messages": [{"role": "user", "content": "Can I deploy on a Friday?"}]}
+            resp = await c.post("/chat", json={**body, "rag": True})
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "deploy-windows" in data["doc_ids"]
+    assert any("deploy-windows" in cit["doc_ids"] for cit in data["citations"])

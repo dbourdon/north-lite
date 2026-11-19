@@ -30,6 +30,7 @@ class FakeLLMClient:
     def __init__(self, latency_s: float = 0.0) -> None:
         self.latency_s = latency_s
         self.embed_calls: list[int] = []  # batch size of each embed() call
+        self.rerank_calls = 0
         self.in_flight = 0
         self.max_in_flight = 0
 
@@ -60,6 +61,7 @@ class FakeLLMClient:
             self.in_flight -= 1
 
     async def rerank(self, query: str, documents: Sequence[str], top_n: int) -> list[RerankHit]:
+        self.rerank_calls += 1
         q = set(_tokens(query))
         scored = [
             RerankHit(index=i, score=len(q & set(_tokens(d))) / (len(q) or 1))
