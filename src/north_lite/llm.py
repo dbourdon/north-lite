@@ -9,9 +9,15 @@ from collections.abc import AsyncIterator, Sequence
 from typing import Literal, Protocol
 
 import cohere
+from cohere.core.request_options import RequestOptions
 from pydantic import BaseModel, Field
 
+from north_lite.retry import RetryPolicy, retry_async
 from north_lite.settings import Settings
+
+# The SDK retries 429/5xx twice by default; we own retries (north_lite.retry), so
+# turn its retries off to avoid multiplying attempts.
+NO_SDK_RETRIES: RequestOptions = {"max_retries": 0}
 
 Role = Literal["system", "user", "assistant"]
 InputType = Literal["search_document", "search_query", "classification", "clustering"]
@@ -83,6 +89,7 @@ class CohereClient:
             )
         self._sdk = sdk
         self._s = settings
+        self._retry = RetryPolicy(attempts=settings.max_attempts)
 
     async def chat(
         self, messages: Sequence[Message], documents: Sequence[Document] = ()
@@ -91,11 +98,15 @@ class CohereClient:
         sdk_docs: list[cohere.V2ChatRequestDocumentsItem] = [
             cohere.Document(id=d.id, data={"title": d.title, "snippet": d.text}) for d in documents
         ]
-        resp = await self._sdk.chat(
-            model=self._s.chat_model,
-            messages=[_to_sdk_message(m) for m in messages],
-            # Default citation mode: command-a-plus rejects mode="ACCURATE" (400).
-            documents=sdk_docs or None,
+        resp = await retry_async(
+            lambda: self._sdk.chat(
+                model=self._s.chat_model,
+                messages=[_to_sdk_message(m) for m in messages],
+                # Default citation mode: command-a-plus rejects mode="ACCURATE" (400).
+                documents=sdk_docs or None,
+                request_options=NO_SDK_RETRIES,
+            ),
+            self._retry,
         )
         # Reasoning models also return a "thinking" block; only the text block is the answer.
         text = "".join(
@@ -118,8 +129,12 @@ class CohereClient:
         return ChatResponse(text=text, citations=citations)
 
     async def stream_chat(self, messages: Sequence[Message]) -> AsyncIterator[str]:
+        # No retry here: once chunks have reached the caller, replaying the request
+        # would duplicate text. A production version could retry until the first chunk.
         stream = self._sdk.chat_stream(
-            model=self._s.chat_model, messages=[_to_sdk_message(m) for m in messages]
+            model=self._s.chat_model,
+            messages=[_to_sdk_message(m) for m in messages],
+            request_options=NO_SDK_RETRIES,
         )
         async for event in stream:
             # Only content-delta events carry answer text; the rest are lifecycle events.
@@ -131,11 +146,15 @@ class CohereClient:
     async def embed(self, texts: Sequence[str], input_type: InputType) -> list[list[float]]:
         if len(texts) > EMBED_BATCH_SIZE:
             raise ValueError(f"embed() takes at most {EMBED_BATCH_SIZE} texts; use embed_many()")
-        resp = await self._sdk.embed(
-            model=self._s.embed_model,
-            texts=list(texts),
-            input_type=input_type,
-            embedding_types=["float"],
+        resp = await retry_async(
+            lambda: self._sdk.embed(
+                model=self._s.embed_model,
+                texts=list(texts),
+                input_type=input_type,
+                embedding_types=["float"],
+                request_options=NO_SDK_RETRIES,
+            ),
+            self._retry,
         )
         vectors = resp.embeddings.float_
         if vectors is None or len(vectors) != len(texts):
@@ -143,8 +162,15 @@ class CohereClient:
         return vectors
 
     async def rerank(self, query: str, documents: Sequence[str], top_n: int) -> list[RerankHit]:
-        resp = await self._sdk.rerank(
-            model=self._s.rerank_model, query=query, documents=list(documents), top_n=top_n
+        resp = await retry_async(
+            lambda: self._sdk.rerank(
+                model=self._s.rerank_model,
+                query=query,
+                documents=list(documents),
+                top_n=top_n,
+                request_options=NO_SDK_RETRIES,
+            ),
+            self._retry,
         )
         return [RerankHit(index=r.index, score=r.relevance_score) for r in resp.results]
 
@@ -156,11 +182,16 @@ async def embed_many(
     *,
     batch_size: int = EMBED_BATCH_SIZE,
     max_concurrency: int = 4,
+    timeout_s: float | None = None,
 ) -> list[list[float]]:
     """Embed any number of texts: split into batches, run them concurrently, keep order.
 
-    The semaphore caps in-flight requests so a big corpus doesn't trip rate limits;
-    gather() returns results in submission order, so output[i] matches texts[i].
+    - Semaphore: caps in-flight requests so a big corpus doesn't trip rate limits.
+    - TaskGroup (not gather): if one batch fails, the others are cancelled instead of
+      running on and burning quota for a result we'll throw away. Errors surface as
+      an ExceptionGroup (handle with `except*`).
+    - asyncio.timeout: one deadline for the whole job; on expiry every in-flight
+      batch is cancelled and TimeoutError is raised.
     """
     sem = asyncio.Semaphore(max_concurrency)
 
@@ -169,8 +200,11 @@ async def embed_many(
             return await client.embed(batch, input_type)
 
     batches = [texts[i : i + batch_size] for i in range(0, len(texts), batch_size)]
-    results = await asyncio.gather(*(one(b) for b in batches))
-    return [vec for batch in results for vec in batch]
+    async with asyncio.timeout(timeout_s):  # None means no deadline
+        async with asyncio.TaskGroup() as tg:
+            tasks = [tg.create_task(one(b)) for b in batches]
+    # Tasks were created in batch order, so flattening their results keeps order.
+    return [vec for t in tasks for vec in t.result()]
 
 
 def make_client(settings: Settings) -> LLMClient:

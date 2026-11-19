@@ -23,6 +23,7 @@ class Settings(BaseSettings):
     embed_model: str = "embed-v5.0-pro"
     rerank_model: str = "rerank-v5.0-pro"
     timeout_s: float = Field(default=30.0, gt=0)
+    max_attempts: int = Field(default=4, ge=1)  # per API call, incl. the first (north_lite.retry)
     embed_concurrency: int = Field(default=4, ge=1)
     docs_path: Path = DEFAULT_DOCS
 
