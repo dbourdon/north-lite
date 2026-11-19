@@ -1,0 +1,9 @@
+north-lite {{ .Chart.AppVersion }} is deployed as release "{{ .Release.Name }}" in namespace "{{ .Release.Namespace }}".
+
+Backend: {{ .Values.config.backend }}
+Flags:   rerank={{ .Values.features.rerank }} streaming={{ .Values.features.streaming }} cache={{ .Values.features.cache }} requireApproval={{ .Values.features.requireApproval }}
+
+Try it:
+  kubectl -n {{ .Release.Namespace }} port-forward svc/{{ include "north-lite.fullname" . }} 8080:{{ .Values.service.port }}
+  curl -s localhost:8080/readyz
+  curl -s localhost:8080/search -H 'content-type: application/json' -d '{"query":"How long are CI build logs kept?"}'

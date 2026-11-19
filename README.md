@@ -26,6 +26,30 @@ The node image is pinned to Kubernetes 1.33 because Docker Desktop on this WSL
 kernel uses cgroup v1, which newer kubelets refuse to run on. With cgroup v2
 (see `docker info | grep -i cgroup`) the default kind image works.
 
+## Deploy with Helm
+
+```bash
+# Fake backend: no key needed
+helm upgrade --install nl charts/north-lite -n nl --create-namespace \
+  --set config.backend=fake --wait
+
+# Flip a flag: the ConfigMap changes, its checksum annotation rolls the pods
+helm upgrade --install nl charts/north-lite -n nl --reuse-values --set features.rerank=false --wait
+helm history nl -n nl
+helm rollback nl 1 -n nl --wait
+
+# Real backend with a pre-created Secret (preferred over apiKey.value)
+kubectl -n nl create secret generic cohere-api-key --from-literal=CO_API_KEY="$CO_API_KEY"
+helm upgrade --install nl charts/north-lite -n nl \
+  --set config.backend=cohere --set apiKey.existingSecret=cohere-api-key --wait
+```
+
+Rendering fails early if `config.backend=cohere` has no key source. Pods roll on
+ConfigMap changes and on chart-created Secret changes; a change inside an
+`existingSecret` needs `kubectl rollout restart` (the chart can't hash a Secret it
+doesn't render). If you build the Secret from `.env` with `--from-env-file`, strip
+quotes first: kubectl keeps them, python-dotenv doesn't.
+
 ## Configuration
 
 | Env var | Default | Meaning |

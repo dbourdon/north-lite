@@ -1,0 +1,100 @@
+# Default values for north-lite. Override per environment with -f values-<env>.yaml
+# or --set key=value.
+
+replicaCount: 1
+
+image:
+  repository: north-lite
+  # Defaults to .Chart.AppVersion when empty.
+  tag: dev
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  # The app never calls the Kubernetes API, so don't mount a token it doesn't need.
+  automount: false
+  annotations: {}
+  name: ""
+
+# Non-secret settings, rendered into a ConfigMap and loaded as NL_* env vars.
+config:
+  backend: cohere # cohere | fake (deterministic, no key, no network)
+  chatModel: command-a-plus-05-2026
+  embedModel: embed-v5.0-pro
+  rerankModel: rerank-v5.0-pro
+  timeoutS: 30
+  maxAttempts: 4
+
+# Feature flags. One deployed environment = one combination of these.
+features:
+  rerank: true
+  streaming: true
+  cache: false
+  requireApproval: true
+
+# Cohere API key. Prefer existingSecret: the key then never passes through Helm
+# values or release history (which Helm stores in the cluster).
+apiKey:
+  existingSecret: ""
+  existingSecretKey: CO_API_KEY
+  # Dev only: the chart creates a Secret from this value.
+  value: ""
+
+podAnnotations: {}
+podLabels: {}
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 10001
+  runAsGroup: 10001
+  fsGroup: 10001
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop: ["ALL"]
+
+service:
+  type: ClusterIP
+  port: 80
+
+# A memory limit but no CPU limit: CPU limits cause throttling under bursty load,
+# while the request alone is enough for scheduling and fair sharing.
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    memory: 256Mi
+
+# Startup covers index building (an embed call with the real backend) so liveness
+# can stay strict without killing pods that are still starting.
+startupProbe:
+  httpGet:
+    path: /healthz
+    port: http
+  periodSeconds: 2
+  failureThreshold: 60
+livenessProbe:
+  httpGet:
+    path: /healthz
+    port: http
+  periodSeconds: 10
+  failureThreshold: 3
+readinessProbe:
+  httpGet:
+    path: /readyz
+    port: http
+  periodSeconds: 5
+  failureThreshold: 3
+
+nodeSelector: {}
+tolerations: []
+affinity: {}

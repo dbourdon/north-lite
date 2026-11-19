@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "north-lite.fullname" . }}
+  labels:
+    {{- include "north-lite.labels" . | nindent 4 }}
+data:
+  # ConfigMap values must be strings, hence | quote (true -> "true", 30 -> "30").
+  # No `default` on the booleans: `false | default true` would give true.
+  NL_BACKEND: {{ .Values.config.backend | quote }}
+  NL_CHAT_MODEL: {{ .Values.config.chatModel | quote }}
+  NL_EMBED_MODEL: {{ .Values.config.embedModel | quote }}
+  NL_RERANK_MODEL: {{ .Values.config.rerankModel | quote }}
+  NL_TIMEOUT_S: {{ .Values.config.timeoutS | quote }}
+  NL_MAX_ATTEMPTS: {{ .Values.config.maxAttempts | quote }}
+  NL_FEATURE_RERANK: {{ .Values.features.rerank | quote }}
+  NL_FEATURE_STREAMING: {{ .Values.features.streaming | quote }}
+  NL_FEATURE_CACHE: {{ .Values.features.cache | quote }}
+  NL_REQUIRE_APPROVAL: {{ .Values.features.requireApproval | quote }}
