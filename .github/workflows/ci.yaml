@@ -104,3 +104,54 @@ jobs:
           # are reused across runs, so only changed source is rebuilt.
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  # One e2e environment per values-flags-*.yaml file: adding a profile file adds
+  # a matrix leg, with no workflow edit.
+  profiles:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    outputs:
+      list: ${{ steps.list.outputs.list }}
+    steps:
+      - uses: actions/checkout@v7
+      - id: list
+        run: |
+          list=$(ls charts/north-lite/values-flags-*.yaml \
+            | sed -E 's#.*/values-flags-(.*)\.yaml#\1#' | jq -R . | jq -sc .)
+          echo "list=$list" >> "$GITHUB_OUTPUT"
+          echo "profiles: $list"
+
+  e2e:
+    name: e2e (${{ matrix.profile }})
+    # Don't spin up clusters for a chart that fails lint.
+    needs: [chart, profiles]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false # one broken profile shouldn't hide the others' results
+      matrix:
+        profile: ${{ fromJSON(needs.profiles.outputs.list) }}
+    env:
+      RELEASE: nl-${{ matrix.profile }}
+      CHART: charts/north-lite
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup-kind-env
+        with:
+          helm-version: ${{ env.HELM_VERSION }}
+      - name: helm install (${{ matrix.profile }})
+        run: >-
+          helm install "$RELEASE" "$CHART" -n "$RELEASE" --create-namespace
+          -f "$CHART/values-ci.yaml" -f "$CHART/values-flags-${{ matrix.profile }}.yaml"
+          --wait --timeout 180s
+      - name: helm test
+        run: helm test "$RELEASE" -n "$RELEASE" --logs --timeout 180s
+      - name: collect diagnostics
+        if: failure()
+        run: scripts/collect-diagnostics.sh "$RELEASE" diagnostics
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: e2e-diagnostics-${{ matrix.profile }}
+          path: diagnostics/
+          retention-days: 7
