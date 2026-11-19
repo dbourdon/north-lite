@@ -1,0 +1,22 @@
+[
+  {"id": "deploy-windows", "title": "Deploy windows", "text": "Production deploys run Monday to Thursday, 09:00 to 16:00 Eastern. Friday deploys need approval from the on-call lead."},
+  {"id": "rollback", "title": "Rollback policy", "text": "Any engineer may roll back a release without approval. Rollbacks must be announced in #deploys within 10 minutes."},
+  {"id": "oncall-rotation", "title": "On-call rotation", "text": "On-call shifts last one week and hand over every Tuesday at 10:00 Eastern. Each shift has a primary and a secondary."},
+  {"id": "oncall-pager", "title": "Pager response", "text": "The primary must acknowledge a page within 5 minutes. After 15 minutes without acknowledgement the page escalates to the secondary."},
+  {"id": "sev-levels", "title": "Severity levels", "text": "SEV1 means customers cannot use the product. SEV2 means a major feature is degraded. SEV3 is a minor issue with a workaround."},
+  {"id": "postmortems", "title": "Postmortems", "text": "Every SEV1 and SEV2 needs a blameless postmortem, published within 5 business days of the incident."},
+  {"id": "feature-flags", "title": "Feature flags", "text": "New features ship behind a feature flag. Flags that have been fully rolled out for 30 days must be removed from the code."},
+  {"id": "flag-naming", "title": "Flag naming", "text": "Feature flags are named team_feature_purpose in snake case, for example search_rerank_enabled."},
+  {"id": "ci-time", "title": "CI time budget", "text": "The pull request pipeline must finish in under 15 minutes. Slow test suites are split and run in parallel."},
+  {"id": "flaky-tests", "title": "Flaky tests", "text": "A test that fails and then passes on retry is quarantined within one day and fixed or deleted within two weeks."},
+  {"id": "build-logs", "title": "Build log retention", "text": "CI build logs are kept for 90 days. Release build logs are kept for one year."},
+  {"id": "code-review", "title": "Code review", "text": "Every pull request needs one approving review. Changes to Helm charts or CI workflows also need a review from the platform team."},
+  {"id": "environments", "title": "Environments", "text": "There are three shared environments: dev, staging and prod. Preview environments are created per pull request and deleted after 48 hours."},
+  {"id": "secrets", "title": "Secrets handling", "text": "Secrets live in the cloud secret manager and are mounted at runtime. Secrets must never be committed to git or printed in logs."},
+  {"id": "api-keys", "title": "API key rotation", "text": "Third-party API keys are rotated every 90 days, or immediately if a key may have been exposed."},
+  {"id": "benchmarks", "title": "Benchmark gate", "text": "Every release runs the latency benchmark. A p95 latency regression of more than 15 percent against the baseline blocks the release."},
+  {"id": "llm-evals", "title": "LLM evaluations", "text": "Model or prompt changes must pass the offline eval suite. Retrieval hit rate must stay at or above 0.85."},
+  {"id": "test-data", "title": "Test data", "text": "Tests use synthetic data only. Customer data must never be copied into dev, staging or CI."},
+  {"id": "air-gapped", "title": "Air-gapped installs", "text": "Air-gapped customers receive container images and Helm charts as an offline bundle. These installs make no external network calls."},
+  {"id": "support-hours", "title": "Support hours", "text": "Enterprise support covers 24 hours a day, 7 days a week for SEV1. SEV2 and SEV3 are handled during business hours."}
+]

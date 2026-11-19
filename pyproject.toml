@@ -1,11 +1,9 @@
 [project]
 name = "north-lite"
 version = "0.1.0"
-description = "Add your description here"
+description = "Mini North-style LLM service: typed Cohere client, Helm, flag-matrix CI, benchmarks"
 readme = "README.md"
-authors = [
-    { name = "Dave", email = "you@example.com" }
-]
+authors = [{ name = "Dave Bourdon" }]
 requires-python = ">=3.12"
 dependencies = [
     "cohere>=7.3.2",
@@ -17,7 +15,7 @@ dependencies = [
 ]
 
 [project.scripts]
-north-lite = "north_lite:main"
+north-lite = "north_lite.cli:main"
 
 [build-system]
 requires = ["uv_build>=0.13.9,<0.14.0"]
@@ -31,3 +29,20 @@ dev = [
     "pytest-xdist>=3.8.0",
     "ruff>=0.17.6",
 ]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+addopts = "-m 'not live'"
+markers = ["live: calls the real Cohere API (needs CO_API_KEY, uses trial quota)"]
+
+[tool.mypy]
+strict = true
+mypy_path = "src"
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "ASYNC", "RUF"]
