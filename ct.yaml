@@ -1,0 +1,8 @@
+# chart-testing config (https://github.com/helm/chart-testing)
+chart-dirs:
+  - charts
+target-branch: main
+# Every chart change must bump Chart.yaml `version` (checked on pull requests).
+check-version-increment: true
+validate-maintainers: false
+helm-extra-args: --timeout 300s

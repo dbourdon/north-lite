@@ -5,4 +5,4 @@ config:
 image:
   repository: north-lite
   tag: dev
-  pullPolicy: Never # image is loaded into kind, never pulled
+  pullPolicy: Never  # image is loaded into kind, never pulled

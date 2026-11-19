@@ -3,6 +3,21 @@
 A small North-style LLM service (FastAPI on the Cohere API) used to practise
 developer-experience platform work: Helm, feature-flag environments, CI, benchmarks.
 
+[![ci](https://github.com/dbourdon/north-lite/actions/workflows/ci.yaml/badge.svg)](https://github.com/dbourdon/north-lite/actions/workflows/ci.yaml)
+
+## CI
+
+`.github/workflows/ci.yaml` runs three jobs in parallel on every PR and push to `main`:
+
+| Job | What it checks |
+|---|---|
+| `python` | ruff, `mypy --strict`, `pytest -n auto -m "not live"` (fake backend: no key, no quota) |
+| `chart` | `ct lint` (yamllint, schema, Chart.yaml version bump on PRs), `helm unittest`, kubeconform on every flag profile |
+| `image` | Docker build with the GitHub Actions layer cache; pushed to GHCR only from `main` |
+
+Run the same checks locally: `uv run pytest -n auto`, `ct lint --config ct.yaml --all`,
+`helm unittest charts/north-lite`, `scripts/validate-chart.sh`.
+
 ## Run locally
 
 ```bash
