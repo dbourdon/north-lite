@@ -22,7 +22,7 @@ serviceAccount:
 
 # Non-secret settings, rendered into a ConfigMap and loaded as NL_* env vars.
 config:
-  backend: cohere # cohere | fake (deterministic, no key, no network)
+  backend: cohere  # cohere | fake (deterministic, no key, no network)
   chatModel: command-a-plus-05-2026
   embedModel: embed-v5.0-pro
   rerankModel: rerank-v5.0-pro

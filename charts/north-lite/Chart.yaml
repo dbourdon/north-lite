@@ -3,5 +3,5 @@ name: north-lite
 description: North-style LLM service (FastAPI on the Cohere API) with feature-flag environments
 type: application
 # Chart version: bump on any chart change. appVersion: the application release.
-version: 0.1.0
+version: 0.1.1
 appVersion: "0.1.0"

@@ -1,0 +1,5 @@
+# Used by chart-testing (ct lint), which lints once per ci/*-values.yaml file.
+# The chart's defaults deliberately fail without an API key, so ct gets the fake
+# backend; the flag profiles are covered by the e2e matrix and helm-unittest.
+config:
+  backend: fake
