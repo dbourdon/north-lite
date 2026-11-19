@@ -1,6 +1,5 @@
 """Real-API smoke tests. Excluded by default; run with: uv run pytest -m live"""
 
-import os
 from pathlib import Path
 
 import pytest
@@ -13,7 +12,8 @@ DOCS = Path(__file__).resolve().parents[1] / "data" / "handbook.json"
 
 pytestmark = [
     pytest.mark.live,
-    pytest.mark.skipif(not os.environ.get("CO_API_KEY"), reason="CO_API_KEY not set"),
+    # Settings() also reads .env, so a key there counts, not just an exported one.
+    pytest.mark.skipif(Settings().co_api_key is None, reason="CO_API_KEY not set (env or .env)"),
 ]
 
 
