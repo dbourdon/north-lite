@@ -1,0 +1,12 @@
+# Air-gapped install (North deploys into customer VPCs, on-prem, air-gapped):
+# no external network at all. The fake backend stands in for an in-cluster model;
+# the NetworkPolicy denies all egress, so any accidental external call fails.
+config:
+  backend: fake
+features:
+  rerank: true
+  streaming: true
+  cache: false
+networkPolicy:
+  enabled: true
+  allowDNS: false

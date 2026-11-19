@@ -50,6 +50,38 @@ ConfigMap changes and on chart-created Secret changes; a change inside an
 doesn't render). If you build the Secret from `.env` with `--from-env-file`, strip
 quotes first: kubectl keeps them, python-dotenv doesn't.
 
+## Flag profiles and chart tests
+
+Each environment is `values-ci.yaml` (fake backend, local image) plus one profile:
+
+| Profile | rerank | streaming | cache | Network |
+|---|---|---|---|---|
+| `minimal` | off | off | off | open |
+| `full` | on | on | on | open |
+| `no-rerank` | off | on | on | open |
+| `airgapped` | on | on | off | all egress denied (NetworkPolicy) |
+
+```bash
+helm lint charts/north-lite --strict -f charts/north-lite/values-ci.yaml
+helm unittest charts/north-lite              # render-level assertions (23)
+uv run pytest tests/test_chart.py            # checksum changes, schema, packaging
+
+p=full
+helm upgrade --install nl-$p charts/north-lite -n nl-$p --create-namespace \
+  -f charts/north-lite/values-ci.yaml -f charts/north-lite/values-flags-$p.yaml --wait
+helm test nl-$p -n nl-$p --logs              # checks the live service matches its flags
+```
+
+- `values.schema.json` rejects bad values before anything reaches the cluster
+  (`--set replicaCount=abc`, a typo like `features.rerak`, an unknown backend).
+- `helm test` runs a pod that checks streaming, rerank and cache behaviour against
+  the profile's flags. With a NetworkPolicy, a second test pod under the same
+  policy must fail to reach the internet.
+- That egress test fails on this WSL host: its 5.15 kernel lacks the nftables
+  support kindnet needs to enforce NetworkPolicy, so the policy is accepted but
+  ignored. The test exists to catch exactly that; it passes on clusters that
+  enforce policies (e.g. CI runners).
+
 ## Configuration
 
 | Env var | Default | Meaning |

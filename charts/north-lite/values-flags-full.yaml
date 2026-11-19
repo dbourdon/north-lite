@@ -1,0 +1,5 @@
+# Everything on.
+features:
+  rerank: true
+  streaming: true
+  cache: true

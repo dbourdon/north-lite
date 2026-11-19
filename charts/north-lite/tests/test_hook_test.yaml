@@ -1,0 +1,43 @@
+suite: helm test hook
+templates:
+  - templates/tests/test-flags.yaml
+set:
+  config.backend: fake
+tests:
+  - it: is a helm test hook
+    asserts:
+      - equal:
+          path: metadata.annotations["helm.sh/hook"]
+          value: test
+
+  - it: is not selected by the Service (would receive traffic)
+    asserts:
+      - notExists:
+          path: metadata.labels["app.kubernetes.io/name"]
+      - notExists:
+          path: metadata.labels["app.kubernetes.io/instance"]
+
+  - it: expects what the minimal profile configures
+    values:
+      - ../values-flags-minimal.yaml
+    asserts:
+      - contains:
+          path: spec.containers[0].env
+          content: { name: WANT_STREAM, value: "400" }
+      - contains:
+          path: spec.containers[0].env
+          content: { name: WANT_RERANKED, value: "false" }
+      - contains:
+          path: spec.containers[0].env
+          content: { name: WANT_CACHE, value: bypass }
+
+  - it: expects what the full profile configures
+    values:
+      - ../values-flags-full.yaml
+    asserts:
+      - contains:
+          path: spec.containers[0].env
+          content: { name: WANT_STREAM, value: "200" }
+      - contains:
+          path: spec.containers[0].env
+          content: { name: WANT_CACHE, value: hit }

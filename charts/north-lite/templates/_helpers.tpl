@@ -51,6 +51,24 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 
 {{/*
+Label the NetworkPolicy selects on. Separate from the selector labels so the
+egress test pod can be put under the same policy without the Service routing
+traffic to it.
+*/}}
+{{- define "north-lite.testLabels" -}}
+{{- /* Common labels minus the selector labels: a Ready test pod carrying the
+selector labels would be added to the Service's endpoints and receive traffic. */ -}}
+helm.sh/chart: {{ include "north-lite.chart" . }}
+app.kubernetes.io/part-of: {{ include "north-lite.name" . }}
+app.kubernetes.io/component: helm-test
+app.kubernetes.io/managed-by: {{ .Release.Service }}
+{{- end }}
+
+{{- define "north-lite.policyLabels" -}}
+north-lite.dev/egress-policy: {{ include "north-lite.fullname" . }}
+{{- end }}
+
+{{/*
 Create the name of the service account to use
 */}}
 {{- define "north-lite.serviceAccountName" -}}
@@ -83,5 +101,10 @@ Fail at render time on settings that would only break once deployed.
 {{- define "north-lite.validate" -}}
 {{- if and (eq .Values.config.backend "cohere") (not (include "north-lite.hasApiKey" .)) }}
 {{- fail "config.backend=cohere needs an API key: set apiKey.existingSecret (preferred) or apiKey.value, or use config.backend=fake" }}
+{{- end }}
+{{- with .Values.networkPolicy }}
+{{- if and .enabled (eq $.Values.config.backend "cohere") (not .extraEgress) }}
+{{- fail "networkPolicy blocks all external egress, so config.backend=cohere can't reach the API: allow it via networkPolicy.extraEgress or use an in-cluster backend (fake stands in here)" }}
+{{- end }}
 {{- end }}
 {{- end }}

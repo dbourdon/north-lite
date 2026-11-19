@@ -21,3 +21,7 @@
 .idea/
 *.tmproj
 .vscode/
+# Environment profiles and unit tests live with the chart but aren't packaged.
+values-*.yaml
+# Anchored: a bare "tests/" would also drop templates/tests/ (the helm test hook).
+/tests/

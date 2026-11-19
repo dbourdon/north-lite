@@ -1,0 +1,67 @@
+{{- /*
+`helm test` hook: probes the deployed service and checks that its behaviour
+matches the feature flags this release was installed with. In CI this runs once
+per flag profile, so each environment proves it is the environment it claims to be.
+*/ -}}
+apiVersion: v1
+kind: Pod
+metadata:
+  name: {{ include "north-lite.fullname" . }}-test-flags
+  labels:
+    {{- include "north-lite.testLabels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": test
+    # Delete the previous run's pod first; keep a failed one for `kubectl logs`.
+    "helm.sh/hook-delete-policy": before-hook-creation
+spec:
+  restartPolicy: Never
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 10002
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+    - name: test
+      image: "{{ .Values.tests.image.repository }}:{{ .Values.tests.image.tag }}"
+      securityContext:
+        allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: true
+        capabilities:
+          drop: ["ALL"]
+      env:
+        - name: BASE
+          value: "http://{{ include "north-lite.fullname" . }}:{{ .Values.service.port }}"
+        - name: WANT_STREAM
+          value: {{ ternary "200" "400" .Values.features.streaming | quote }}
+        - name: WANT_RERANKED
+          value: {{ .Values.features.rerank | quote }}
+        - name: WANT_CACHE
+          value: {{ ternary "hit" "bypass" .Values.features.cache | quote }}
+      command: ["/bin/sh", "-ec"]
+      args:
+        - |
+          json='content-type: application/json'
+          fail() { echo "FAIL: $*"; exit 1; }
+
+          curl -fsS "$BASE/readyz" >/dev/null || fail "/readyz not ready"
+          echo "ok   readyz"
+
+          curl -fsS "$BASE/chat" -H "$json" \
+            -d '{"messages":[{"role":"user","content":"ping"}]}' >/dev/null || fail "/chat"
+          echo "ok   chat"
+
+          got=$(curl -s -o /dev/null -w '%{http_code}' "$BASE/chat?stream=true" -H "$json" \
+            -d '{"messages":[{"role":"user","content":"ping"}]}')
+          [ "$got" = "$WANT_STREAM" ] || fail "streaming: HTTP $got, want $WANT_STREAM"
+          echo "ok   streaming -> $got"
+
+          body='{"query":"How long are CI build logs kept?"}'
+          curl -fsS "$BASE/search" -H "$json" -d "$body" | grep -q "\"reranked\":$WANT_RERANKED" \
+            || fail "rerank: want reranked=$WANT_RERANKED"
+          echo "ok   reranked=$WANT_RERANKED"
+
+          # First call above primed the cache (if on); the second must be a hit.
+          got=$(curl -fsS -D - -o /dev/null "$BASE/search" -H "$json" -d "$body" \
+            | tr -d '\r' | awk -F': ' 'tolower($1)=="x-cache"{print $2}')
+          [ "$got" = "$WANT_CACHE" ] || fail "cache: X-Cache=$got, want $WANT_CACHE"
+          echo "ok   cache -> $got"

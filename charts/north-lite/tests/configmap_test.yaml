@@ -1,0 +1,45 @@
+suite: configmap
+templates:
+  - templates/configmap.yaml
+set:
+  config.backend: fake
+tests:
+  - it: renders rerank=false as the string "false"
+    set:
+      features.rerank: false
+    asserts:
+      - equal:
+          path: data.NL_FEATURE_RERANK
+          value: "false"
+
+  - it: keeps an explicit false (no `default` swallowing it)
+    set:
+      features.streaming: false
+      features.requireApproval: false
+    asserts:
+      - equal:
+          path: data.NL_FEATURE_STREAMING
+          value: "false"
+      - equal:
+          path: data.NL_REQUIRE_APPROVAL
+          value: "false"
+
+  - it: renders numbers as strings
+    asserts:
+      - equal:
+          path: data.NL_TIMEOUT_S
+          value: "30"
+      - equal:
+          path: data.NL_MAX_ATTEMPTS
+          value: "4"
+
+  - it: applies a profile file
+    values:
+      - ../values-flags-minimal.yaml
+    asserts:
+      - equal:
+          path: data.NL_FEATURE_RERANK
+          value: "false"
+      - equal:
+          path: data.NL_FEATURE_CACHE
+          value: "false"

@@ -1,0 +1,33 @@
+{{- if .Values.networkPolicy.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "north-lite.fullname" . }}
+  labels:
+    {{- include "north-lite.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "north-lite.policyLabels" . | nindent 6 }}
+  # Egress only: inbound traffic (Service, probes, helm test) is unaffected.
+  policyTypes:
+    - Egress
+  egress:
+    {{- if .Values.networkPolicy.allowDNS }}
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    {{- end }}
+    {{- with .Values.networkPolicy.extraEgress }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+    {{- if not (or .Values.networkPolicy.allowDNS .Values.networkPolicy.extraEgress) }}
+    [] # no rules: all egress denied
+    {{- end }}
+{{- end }}
