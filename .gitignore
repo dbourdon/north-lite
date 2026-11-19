@@ -1,0 +1,10 @@
+.env
+.env.*
+.venv/
+__pycache__/
+*.py[cod]
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+dist/
+.claude/worktrees/
