@@ -1,0 +1,71 @@
+name: setup-kind-env
+description: >-
+  Kubernetes test environment for north-lite: Helm, a kind cluster, and the
+  service image built from this checkout and loaded into the cluster. Reusable by
+  any workflow that needs "a cluster with our image in it".
+
+inputs:
+  cluster-name:
+    description: kind cluster name
+    default: nl
+  node-image:
+    description: kind node image (pins the Kubernetes version; same as local dev)
+    default: kindest/node:v1.33.1
+  kind-version:
+    description: kind CLI version
+    default: v0.33.0
+  helm-version:
+    description: Helm version
+    default: v3.22.1
+  image:
+    description: image name:tag to build and load into the cluster
+    default: north-lite:dev
+  cni:
+    description: >-
+      kindnet (kind's default) or calico. Use calico when NetworkPolicy must be
+      enforced: kindnet accepted our policies but didn't enforce them.
+    default: kindnet
+
+runs:
+  using: composite
+  steps:
+    - uses: azure/setup-helm@v5
+      with:
+        version: ${{ inputs.helm-version }}
+
+    - uses: docker/setup-buildx-action@v4
+
+    # Build into the local Docker daemon (load: true) so kind can import it.
+    # Reads the layer cache the `image` job writes; never writes it, so parallel
+    # matrix legs don't race each other on cache uploads.
+    - uses: docker/build-push-action@v7
+      with:
+        context: .
+        load: true
+        tags: ${{ inputs.image }}
+        cache-from: type=gha
+
+    - name: Check cni input
+      shell: bash
+      run: |
+        case "${{ inputs.cni }}" in kindnet|calico) ;; *)
+          echo "::error::cni must be kindnet or calico, got '${{ inputs.cni }}'"; exit 1;; esac
+
+    - uses: helm/kind-action@v1
+      with:
+        version: ${{ inputs.kind-version }}
+        node_image: ${{ inputs.node-image }}
+        cluster_name: ${{ inputs.cluster-name }}
+        # Without a CNI the node stays NotReady until Calico is installed, so
+        # don't wait here in that case; install-calico.sh waits instead.
+        config: ${{ inputs.cni == 'calico' && 'deploy/kind/calico.yaml' || '' }}
+        wait: ${{ inputs.cni == 'calico' && '0s' || '120s' }}
+
+    - name: Install Calico
+      if: inputs.cni == 'calico'
+      shell: bash
+      run: scripts/install-calico.sh
+
+    - name: Load image into kind
+      shell: bash
+      run: kind load docker-image "${{ inputs.image }}" --name "${{ inputs.cluster-name }}"

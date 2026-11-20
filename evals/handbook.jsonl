@@ -1,0 +1,20 @@
+{"id": "q01", "question": "Am I allowed to ship to production on a Friday afternoon?", "expected_doc_ids": ["deploy-windows"], "answer_contains": ["on-call lead"]}
+{"id": "q02", "question": "Do I need someone's sign-off before reverting a bad release?", "expected_doc_ids": ["rollback"], "answer_contains": ["10 minutes"]}
+{"id": "q03", "question": "What day does the on-call handoff happen?", "expected_doc_ids": ["oncall-rotation"], "answer_contains": ["Tuesday"]}
+{"id": "q04", "question": "How fast do I have to respond when I get paged?", "expected_doc_ids": ["oncall-pager"], "answer_contains": ["5 minutes"]}
+{"id": "q05", "question": "Which severity is it when customers can't use the product at all?", "expected_doc_ids": ["sev-levels"], "answer_contains": ["SEV1"]}
+{"id": "q06", "question": "When is the incident write-up due after a SEV2?", "expected_doc_ids": ["postmortems"], "answer_contains": ["5 business days"]}
+{"id": "q07", "question": "How long can a fully rolled-out flag stay in the codebase?", "expected_doc_ids": ["feature-flags"], "answer_contains": ["30 days"]}
+{"id": "q08", "question": "What naming convention should I use for a new toggle?", "expected_doc_ids": ["flag-naming"], "answer_contains": ["snake case"]}
+{"id": "q09", "question": "What's the maximum time a PR pipeline may take?", "expected_doc_ids": ["ci-time"], "answer_contains": ["15 minutes"]}
+{"id": "q10", "question": "A test passes only on rerun. What happens to it?", "expected_doc_ids": ["flaky-tests"], "answer_contains": ["quarantined"]}
+{"id": "q11", "question": "How long do we keep logs from CI builds?", "expected_doc_ids": ["build-logs"], "answer_contains": ["90 days"]}
+{"id": "q12", "question": "Who has to approve a change to a Helm chart?", "expected_doc_ids": ["code-review"], "answer_contains": ["platform team"]}
+{"id": "q13", "question": "When do per-PR preview environments get torn down?", "expected_doc_ids": ["environments"], "answer_contains": ["48 hours"]}
+{"id": "q14", "question": "Can I paste a credential into a log line while debugging?", "expected_doc_ids": ["secrets"], "answer_contains": ["never"]}
+{"id": "q15", "question": "How often do vendor API tokens get rotated?", "expected_doc_ids": ["api-keys"], "answer_contains": ["90 days"]}
+{"id": "q16", "question": "How much slower can p95 latency get before a release is blocked?", "expected_doc_ids": ["benchmarks"], "answer_contains": ["15"]}
+{"id": "q17", "question": "What retrieval score must a prompt change keep?", "expected_doc_ids": ["llm-evals"], "answer_contains": ["0.85"]}
+{"id": "q18", "question": "Can I copy a customer's data into staging to reproduce a bug?", "expected_doc_ids": ["test-data"], "answer_contains": ["synthetic"]}
+{"id": "q19", "question": "How do customers without internet access receive our software?", "expected_doc_ids": ["air-gapped"], "answer_contains": ["offline bundle"]}
+{"id": "q20", "question": "Is there weekend coverage for a SEV2 ticket?", "expected_doc_ids": ["support-hours"], "answer_contains": ["business hours"]}

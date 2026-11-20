@@ -1,0 +1,8 @@
+# kind cluster without the default CNI (kindnet), for installing Calico.
+# kindnet accepts NetworkPolicy objects but didn't enforce them in our tests
+# (locally or on GitHub runners); Calico does.
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+networking:
+  disableDefaultCNI: true
+  podSubnet: 192.168.0.0/16 # Calico's default IP pool

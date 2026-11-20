@@ -5,6 +5,7 @@ from typing import Any
 
 import httpx
 import pytest
+from cohere.errors import TooManyRequestsError, UnprocessableEntityError
 from fastapi import FastAPI
 
 from north_lite.app import create_app, get_settings
@@ -172,6 +173,42 @@ async def test_email_sent_directly_without_approval(
     assert resp.status_code == 200
     assert resp.json()["status"] == "sent"
     assert len(app.state.services.outbox) == 1
+
+
+@pytest.mark.parametrize(
+    ("upstream", "status", "retry_after"),
+    [
+        # Seen in a live eval: Cohere couldn't generate an answer for one question.
+        (
+            UnprocessableEntityError(
+                body={"error_type": "NO_VALID_RESPONSE_GENERATED", "message": "No valid response"}
+            ),
+            502,
+            None,
+        ),
+        (TooManyRequestsError(body={"message": "limited to 20 API calls / minute"}), 503, "60"),
+    ],
+    ids=["422-no-valid-response", "429-rate-limited"],
+)
+async def test_upstream_llm_errors_are_not_500s(
+    app: FastAPI,
+    client: httpx.AsyncClient,
+    monkeypatch: pytest.MonkeyPatch,
+    upstream: Exception,
+    status: int,
+    retry_after: str | None,
+) -> None:
+    async def failing_chat(*args: Any, **kwargs: Any) -> None:
+        raise upstream
+
+    monkeypatch.setattr(fake_llm(app), "chat", failing_chat)
+    body = {"messages": [{"role": "user", "content": QUESTION}], "rag": True}
+
+    resp = await client.post("/chat", json=body)
+
+    assert resp.status_code == status
+    assert resp.json()["detail"] == "upstream LLM error"
+    assert resp.headers.get("retry-after") == retry_after
 
 
 async def test_unknown_decision_is_rejected(client: httpx.AsyncClient) -> None:
