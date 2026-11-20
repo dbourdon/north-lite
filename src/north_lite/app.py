@@ -4,7 +4,6 @@ Run locally:
     NL_BACKEND=fake uv run uvicorn --factory north_lite.app:create_app --reload
 """
 
-import asyncio
 import hashlib
 import importlib.metadata
 import json
@@ -160,7 +159,6 @@ async def readyz(request: Request) -> dict[str, str]:
 async def search(
     req: SearchRequest, response: Response, settings: SettingsDep, svc: ServicesDep
 ) -> SearchOut:
-    await asyncio.sleep(0.05)  # DEMO: deliberate 50 ms regression; the bench gate must fail
     key = cache_key("search", req, rerank=settings.feature_rerank)
     if settings.feature_cache and (cached := svc.search_cache.get(key)) is not None:
         response.headers["X-Cache"] = "hit"
