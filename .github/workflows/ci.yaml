@@ -70,6 +70,30 @@ jobs:
             | tar xz -C /usr/local/bin kubeconform
           scripts/validate-chart.sh "$K8S_VERSION"
 
+  # The TypeScript bench-gate action: typecheck, unit tests, and a check that the
+  # committed dist/ matches the source (Actions runs dist/, not src/).
+  bench-gate-action:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    defaults:
+      run:
+        working-directory: .github/actions/bench-gate
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: .github/actions/bench-gate/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - name: dist/ is up to date
+        run: |
+          npm run build
+          git diff --exit-code -- dist/ \
+            || { echo "::error::dist/ is stale: run 'npm run build' in .github/actions/bench-gate and commit"; exit 1; }
+
   image:
     runs-on: ubuntu-24.04
     timeout-minutes: 15

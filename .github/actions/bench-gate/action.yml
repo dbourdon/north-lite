@@ -1,0 +1,25 @@
+name: 'bench-gate'
+description: 'Compares a k6 benchmark summary with a committed baseline and fails the job on a latency regression'
+inputs:
+  summary:
+    description: "Path to the current run's summary JSON (written by `loadtest/chat.js`)"
+    required: true
+  baseline:
+    description: 'Path to the baseline JSON (same format)'
+    required: true
+  max-regression-pct:
+    description: 'Fail if p95 grew by more than this percentage...'
+    required: false
+    default: '15'
+  min-delta-ms:
+    description: '...**and** by more than this many milliseconds (noise floor)'
+    required: false
+    default: '20'
+outputs:
+  regressed:
+    description: '"true" or "false"'
+  p95-change-pct:
+    description: 'p95 change vs baseline in percent, e.g. "-3.2"; empty without a baseline'
+runs:
+  using: 'node24'
+  main: 'dist/index.js'
