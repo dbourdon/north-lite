@@ -100,10 +100,34 @@ jobs:
           push: ${{ env.PUSH == 'true' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          build-args: GIT_SHA=${{ github.sha }}
           # Layer cache in the GitHub Actions cache: unchanged dependency layers
           # are reused across runs, so only changed source is rebuilt.
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  # Promotion gate: the release pinned for the Argo CD environments must exist,
+  # so a promotion PR can't point production-like environments at nothing.
+  release-pin:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - uses: actions/checkout@v7
+      - name: deploy/release.yaml pins an existing image
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          ref="$(yq '.image.repository' deploy/release.yaml):$(yq '.image.tag' deploy/release.yaml)"
+          echo "$TOKEN" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin >/dev/null
+          if docker manifest inspect "$ref" >/dev/null; then
+            echo "ok: $ref exists"
+          else
+            echo "::error file=deploy/release.yaml::$ref not found in GHCR; release it first"
+            exit 1
+          fi
 
   # One e2e environment per values-flags-*.yaml file: adding a profile file adds
   # a matrix leg, with no workflow edit. A profile that turns on the NetworkPolicy

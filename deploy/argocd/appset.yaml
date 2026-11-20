@@ -34,9 +34,12 @@ spec:
           # Argo CD renders with `helm template`; there is no Helm release, so
           # `helm list` shows nothing and `helm rollback` doesn't apply.
           releaseName: 'nl-{{ .path.filename | trimSuffix ".yaml" | trimPrefix "values-flags-" }}'
+          # Later files win: the released image from deploy/release.yaml overrides
+          # values-ci.yaml's locally built one. Promotion/rollback = edit that file.
           valueFiles:
             - values-ci.yaml
             - '{{ .path.filename }}'
+            - ../../deploy/release.yaml
       destination:
         server: https://kubernetes.default.svc
         namespace: 'nl-{{ .path.filename | trimSuffix ".yaml" | trimPrefix "values-flags-" }}'

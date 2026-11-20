@@ -1,0 +1,10 @@
+# The release the Argo CD environments run. This file is the promotion point:
+#   promote  = PR that changes `tag` to a newer release
+#   rollback = revert that PR (or a PR setting the previous tag)
+# CI checks that the pinned image exists in GHCR before the PR can merge.
+# Release images are tagged with the bare version (0.1.0), matching appVersion.
+image:
+  repository: ghcr.io/dbourdon/north-lite
+  # Before the first tagged release: the image CI pushed for main at d1b9628.
+  tag: sha-d1b9628
+  pullPolicy: IfNotPresent

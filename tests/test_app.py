@@ -105,6 +105,16 @@ async def test_health_and_ready(client: httpx.AsyncClient) -> None:
     assert (await client.get("/readyz")).status_code == 200
 
 
+async def test_version_reports_package_version_and_commit(
+    client: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import importlib.metadata
+
+    monkeypatch.setenv("NL_GIT_SHA", "abc1234")
+    body = (await client.get("/version")).json()
+    assert body == {"version": importlib.metadata.version("north-lite"), "commit": "abc1234"}
+
+
 async def test_not_ready_before_startup() -> None:
     app = create_app(Settings(backend="fake", _env_file=None))  # type: ignore[call-arg]
     transport = httpx.ASGITransport(app=app)  # lifespan not run: no index yet

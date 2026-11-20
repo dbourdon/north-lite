@@ -86,6 +86,40 @@ def test_every_profile_lints_with_ci_values(profile: str) -> None:
     assert out.returncode == 0, out.stdout + out.stderr
 
 
+def test_app_version_matches_pyproject() -> None:
+    # One version for the release: the tag, the package and the chart's appVersion.
+    # The release workflow checks the tag; this keeps the other two from drifting.
+    import tomllib
+
+    root = CHART.parents[1]
+    pkg = tomllib.loads((root / "pyproject.toml").read_text())["project"]["version"]
+    chart = yaml.safe_load((CHART / "Chart.yaml").read_text())
+    assert chart["appVersion"] == pkg
+
+
+def test_release_pin_overrides_image_for_gitops() -> None:
+    # Argo's value-file order: values-ci, profile, deploy/release.yaml (last wins).
+    root = CHART.parents[1]
+    out = helm(
+        "template", "nl", str(CHART),
+        "-f", str(CHART / "values-ci.yaml"),
+        "-f", str(CHART / "values-flags-full.yaml"),
+        "-f", str(root / "deploy" / "release.yaml"),
+    )  # fmt: skip
+    assert out.returncode == 0, out.stderr
+    pin = yaml.safe_load((root / "deploy" / "release.yaml").read_text())["image"]
+    [deploy] = [d for d in yaml.safe_load_all(out.stdout) if d and d["kind"] == "Deployment"]
+    image = deploy["spec"]["template"]["spec"]["containers"][0]["image"]
+    assert image == f"{pin['repository']}:{pin['tag']}"
+
+
+def test_default_image_is_the_release_for_app_version() -> None:
+    [deploy] = [d for d in render() if d["kind"] == "Deployment"]
+    chart = yaml.safe_load((CHART / "Chart.yaml").read_text())
+    image = deploy["spec"]["template"]["spec"]["containers"][0]["image"]
+    assert image == f"ghcr.io/dbourdon/north-lite:{chart['appVersion']}"
+
+
 def test_profiles_exist() -> None:
     assert {"minimal", "full", "no-rerank", "airgapped"} <= set(PROFILES)
 
