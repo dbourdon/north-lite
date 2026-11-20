@@ -7,4 +7,9 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 dist/
+# ...except the bench-gate bundle: GitHub runs JavaScript actions from committed dist/.
+!.github/actions/bench-gate/dist/
+node_modules/
+loadtest/out/
+bench/
 .claude/worktrees/
