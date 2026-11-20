@@ -177,6 +177,31 @@ jobs:
           --wait --timeout 180s
       - name: helm test
         run: helm test "$RELEASE" -n "$RELEASE" --logs --timeout 180s
+      - name: benchmark (k6)
+        run: |
+          curl -fsSL https://github.com/grafana/k6/releases/download/v2.4.0/k6-v2.4.0-linux-amd64.tar.gz \
+            | tar xz --strip-components=1 -C /usr/local/bin k6-v2.4.0-linux-amd64/k6
+          kubectl -n "$RELEASE" port-forward "svc/$RELEASE-north-lite" 8080:80 >/dev/null 2>&1 &
+          for _ in $(seq 30); do curl -sf localhost:8080/readyz >/dev/null && break; sleep 1; done
+          mkdir -p bench
+          BASE_URL=http://127.0.0.1:8080 SUMMARY="bench/${{ matrix.profile }}.json" \
+            k6 run --quiet loadtest/chat.js
+      - uses: actions/upload-artifact@v7
+        if: always() && hashFiles('bench/*.json') != ''
+        with:
+          name: bench-${{ matrix.profile }}
+          path: bench/
+          retention-days: 30
+      # Fails the leg if p95 regressed vs the committed baseline for this profile.
+      # Runs once the TypeScript action is built (dist/index.js committed).
+      - name: bench gate
+        if: hashFiles('.github/actions/bench-gate/dist/index.js') != ''
+        uses: ./.github/actions/bench-gate
+        with:
+          summary: bench/${{ matrix.profile }}.json
+          baseline: loadtest/baselines/${{ matrix.profile }}.json
+          max-regression-pct: "15"
+          min-delta-ms: "20"
       - name: collect diagnostics
         if: failure()
         run: scripts/collect-diagnostics.sh "$RELEASE" diagnostics
