@@ -5,6 +5,11 @@
 # Release images are tagged with the bare version (0.1.0), matching appVersion.
 image:
   repository: ghcr.io/dbourdon/north-lite
-  # Before the first tagged release: the image CI pushed for main at d1b9628.
-  tag: sha-d1b9628
+  # v0.1.0: https://github.com/dbourdon/north-lite/releases/tag/v0.1.0
+  tag: "0.1.0"
   pullPolicy: IfNotPresent
+
+# GHCR packages are private while the repo is. Each environment namespace needs a
+# docker-registry Secret named ghcr-pull (created out of band, never in git).
+imagePullSecrets:
+  - name: ghcr-pull
