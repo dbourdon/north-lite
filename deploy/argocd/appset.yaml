@@ -1,0 +1,48 @@
+# One Argo CD Application per flag profile, each in its own namespace.
+#
+# Git files generator instead of a hand-kept list: it discovers
+# charts/north-lite/values-flags-*.yaml, so adding a profile file adds an
+# environment here, just as it adds a leg to the CI e2e matrix.
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: north-lite
+  namespace: argocd
+spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
+  generators:
+    - git:
+        repoURL: git@github.com:dbourdon/north-lite.git
+        revision: main
+        files:
+          - path: charts/north-lite/values-flags-*.yaml
+  template:
+    metadata:
+      # values-flags-full.yaml -> profile "full"
+      name: 'north-lite-{{ .path.filename | trimSuffix ".yaml" | trimPrefix "values-flags-" }}'
+      labels:
+        app.kubernetes.io/part-of: north-lite
+        north-lite/profile: '{{ .path.filename | trimSuffix ".yaml" | trimPrefix "values-flags-" }}'
+    spec:
+      project: default
+      source:
+        repoURL: git@github.com:dbourdon/north-lite.git
+        targetRevision: main
+        path: charts/north-lite
+        helm:
+          # Argo CD renders with `helm template`; there is no Helm release, so
+          # `helm list` shows nothing and `helm rollback` doesn't apply.
+          releaseName: 'nl-{{ .path.filename | trimSuffix ".yaml" | trimPrefix "values-flags-" }}'
+          valueFiles:
+            - values-ci.yaml
+            - '{{ .path.filename }}'
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: 'nl-{{ .path.filename | trimSuffix ".yaml" | trimPrefix "values-flags-" }}'
+      syncPolicy:
+        automated:
+          prune: true # resources removed from git are removed from the cluster
+          selfHeal: true # manual kubectl edits are reverted to what git says
+        syncOptions:
+          - CreateNamespace=true

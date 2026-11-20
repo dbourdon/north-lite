@@ -10,6 +10,15 @@ tests:
           path: metadata.annotations["helm.sh/hook"]
           value: test
 
+  - it: is also an Argo CD PostSync hook (Argo doesn't run helm tests)
+    asserts:
+      - equal:
+          path: metadata.annotations["argocd.argoproj.io/hook"]
+          value: PostSync
+      - equal:
+          path: metadata.annotations["argocd.argoproj.io/hook-delete-policy"]
+          value: BeforeHookCreation
+
   - it: is not selected by the Service (would receive traffic)
     asserts:
       - notExists:

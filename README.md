@@ -22,6 +22,30 @@ setup is a reusable composite action, `.github/actions/setup-kind-env`.
 Run the same checks locally: `uv run pytest -n auto`, `ct lint --config ct.yaml --all`,
 `helm unittest charts/north-lite`, `scripts/validate-chart.sh`.
 
+## GitOps: Argo CD ApplicationSet
+
+`deploy/argocd/appset.yaml` creates one Argo CD Application per flag profile
+(release and namespace `nl-<profile>`), with automated sync, prune and self-heal.
+A git files generator discovers `values-flags-*.yaml`, so a new profile file
+becomes a new environment here and a new leg in the CI e2e matrix.
+
+```bash
+scripts/install-argocd.sh                 # Argo CD v3.6.2 into the current context
+scripts/argocd-connect-repo.sh            # read-only deploy key for this private repo
+kubectl apply -f deploy/argocd/appset.yaml
+kubectl -n argocd get applications
+```
+
+What changes when Argo CD deploys the chart instead of Helm:
+
+- Argo renders with `helm template` and applies the manifests itself: there is no
+  Helm release, so `helm list`, `helm history` and `helm rollback` see nothing.
+  Rollback means reverting the commit (or `argocd app rollback`).
+- Argo doesn't run Helm `test` hooks. The test pods are therefore also annotated as
+  Argo **PostSync** hooks, so every sync is verified and a failing check fails the sync.
+- Self-heal: a manual `kubectl` edit to a managed object is reverted to what the
+  repo says (a hand-edited flag was back within ~10 s).
+
 ## Evals: a simulated user
 
 `north-lite eval` plays a user against a running service: it asks each question in

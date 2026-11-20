@@ -51,21 +51,33 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 
 {{/*
-Label the NetworkPolicy selects on. Separate from the selector labels so the
-egress test pod can be put under the same policy without the Service routing
-traffic to it.
+Labels for test pods: common labels minus the selector labels. A Ready test pod
+carrying the selector labels would be added to the Service's endpoints and
+receive traffic.
 */}}
 {{- define "north-lite.testLabels" -}}
-{{- /* Common labels minus the selector labels: a Ready test pod carrying the
-selector labels would be added to the Service's endpoints and receive traffic. */ -}}
 helm.sh/chart: {{ include "north-lite.chart" . }}
 app.kubernetes.io/part-of: {{ include "north-lite.name" . }}
 app.kubernetes.io/component: helm-test
 app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- end }}
 
+{{/*
+Label the NetworkPolicy selects on. Separate from the selector labels so the
+egress test pod can be put under the same policy without the Service routing
+traffic to it.
+*/}}
 {{- define "north-lite.policyLabels" -}}
 north-lite.dev/egress-policy: {{ include "north-lite.fullname" . }}
+{{- end }}
+
+{{/*
+Argo CD hook annotations for the test pods: run after every sync, replacing the
+previous run's pod (a failed one stays until the next sync, for `kubectl logs`).
+*/}}
+{{- define "north-lite.argoPostSync" -}}
+argocd.argoproj.io/hook: PostSync
+argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
 {{- end }}
 
 {{/*
