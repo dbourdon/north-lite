@@ -13,6 +13,10 @@ metadata:
     "helm.sh/hook": test
     # Delete the previous run's pod first; keep a failed one for `kubectl logs`.
     "helm.sh/hook-delete-policy": before-hook-creation
+    # Argo CD doesn't run Helm test hooks. Making the same pod a PostSync hook
+    # means every Argo sync is verified too; a failing check fails the sync.
+    # (Argo uses its own annotation when both are present; Helm ignores it.)
+    {{- include "north-lite.argoPostSync" . | nindent 4 }}
 spec:
   restartPolicy: Never
   securityContext:

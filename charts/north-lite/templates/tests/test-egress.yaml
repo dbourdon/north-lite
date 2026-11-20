@@ -15,6 +15,7 @@ metadata:
   annotations:
     "helm.sh/hook": test
     "helm.sh/hook-delete-policy": before-hook-creation
+    {{- include "north-lite.argoPostSync" . | nindent 4 }}
 spec:
   restartPolicy: Never
   securityContext:
