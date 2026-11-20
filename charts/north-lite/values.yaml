@@ -4,9 +4,10 @@
 replicaCount: 1
 
 image:
-  repository: north-lite
-  # Defaults to .Chart.AppVersion when empty.
-  tag: dev
+  repository: ghcr.io/dbourdon/north-lite
+  # Empty = .Chart.AppVersion, so a released chart deploys its own release image.
+  # Release images are immutable (never re-pushed); see docs/RELEASING.md.
+  tag: ""
   pullPolicy: IfNotPresent
 
 imagePullSecrets: []

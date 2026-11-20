@@ -36,6 +36,11 @@ ENV PATH=/app/.venv/bin:$PATH \
     PYTHONUNBUFFERED=1 \
     NL_DOCS_PATH=/app/data/handbook.json
 
+# Commit the image was built from, reported by GET /version. Declared last so a
+# new commit only changes this final layer.
+ARG GIT_SHA=unknown
+ENV NL_GIT_SHA=${GIT_SHA}
+
 # Numeric non-root UID: works with Kubernetes runAsNonRoot, which can't verify a name.
 USER 10001
 EXPOSE 8000

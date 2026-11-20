@@ -5,7 +5,9 @@ Run locally:
 """
 
 import hashlib
+import importlib.metadata
 import json
+import os
 import uuid
 from collections import OrderedDict
 from collections.abc import AsyncIterator, Sequence
@@ -130,6 +132,18 @@ async def healthz() -> dict[str, str]:
     # Liveness: the process is up. No dependencies checked, so a slow LLM API
     # never gets healthy pods killed.
     return {"status": "ok"}
+
+
+@router.get("/version")
+async def version() -> dict[str, str]:
+    # What is actually running: confirms a promotion or a rollback landed.
+    # The version comes from the installed package (pyproject.toml, the single
+    # source of truth); the commit is baked into the image at build time.
+    try:
+        pkg_version = importlib.metadata.version("north-lite")
+    except importlib.metadata.PackageNotFoundError:
+        pkg_version = "unknown"
+    return {"version": pkg_version, "commit": os.environ.get("NL_GIT_SHA", "unknown")}
 
 
 @router.get("/readyz")

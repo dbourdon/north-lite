@@ -145,6 +145,16 @@ helm test nl-$p -n nl-$p --logs              # checks the live service matches i
   `scripts/install-calico.sh`). Calico doesn't start on this host's WSL 5.15
   kernel either, so the air-gapped egress check is verified in CI only.
 
+## Releases, promotion and rollback
+
+A release is a `vX.Y.Z` tag on `main`. The release workflow checks the tag matches
+the app and chart versions, that CI passed on that commit and that the image tag
+is new, then publishes an immutable image, the chart (OCI) and a GitHub Release.
+The Argo CD environments run whatever `deploy/release.yaml` pins: promotion is a PR
+changing that tag (CI verifies the image exists), rollback is reverting it.
+`GET /version` shows what is running. Full checklist and rollback runbook:
+[docs/RELEASING.md](docs/RELEASING.md).
+
 ## Configuration
 
 | Env var | Default | Meaning |

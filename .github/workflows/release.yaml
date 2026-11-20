@@ -1,0 +1,121 @@
+name: release
+
+# A release is a SemVer tag on main: `git tag v0.2.0 && git push origin v0.2.0`.
+# See docs/RELEASING.md for the whole process, including promotion and rollback.
+on:
+  push:
+    tags: ["v[0-9]+.[0-9]+.[0-9]+"]
+
+permissions:
+  contents: read
+
+# Releases run one at a time and are never cancelled half-way.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+env:
+  IMAGE: ghcr.io/${{ github.repository }}
+  CHART_REPO: oci://ghcr.io/${{ github.repository_owner }}/charts
+  HELM_VERSION: v3.22.1
+
+jobs:
+  gates:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: read # read CI results for the tagged commit
+      packages: read # check the image tag isn't taken
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # need main's history for the ancestry check
+
+      - id: version
+        name: Tag matches pyproject.toml and Chart.yaml appVersion
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          pkg=$(python3 -c 'import tomllib; print(tomllib.load(open("pyproject.toml","rb"))["project"]["version"])')
+          app=$(yq '.appVersion' charts/north-lite/Chart.yaml)
+          if [ "$tag" != "$pkg" ] || [ "$tag" != "$app" ]; then
+            echo "::error::tag $GITHUB_REF_NAME, pyproject.toml $pkg and Chart.yaml appVersion $app must match"
+            exit 1
+          fi
+          echo "version=$tag" >> "$GITHUB_OUTPUT"
+
+      - name: Tagged commit is on main
+        run: |
+          git merge-base --is-ancestor "$GITHUB_SHA" origin/main \
+            || { echo "::error::release tags must point at a commit on main"; exit 1; }
+
+      - name: CI passed on this exact commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          result=$(gh run list --workflow ci.yaml --commit "$GITHUB_SHA" --event push \
+            --json conclusion --jq '.[0].conclusion')
+          [ "$result" = "success" ] \
+            || { echo "::error::CI on $GITHUB_SHA is '${result:-not found}', not success"; exit 1; }
+
+      - name: Image tag is not taken (release images are immutable)
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "$TOKEN" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin >/dev/null
+          if docker manifest inspect "$IMAGE:${{ steps.version.outputs.version }}" >/dev/null 2>&1; then
+            echo "::error::$IMAGE:${{ steps.version.outputs.version }} already exists; bump the version"
+            exit 1
+          fi
+
+  publish:
+    needs: gates
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write # GitHub Release
+      packages: write # image + chart to GHCR
+    env:
+      VERSION: ${{ needs.gates.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v7
+        with:
+          context: .
+          push: true
+          tags: ${{ env.IMAGE }}:${{ env.VERSION }}
+          build-args: GIT_SHA=${{ github.sha }}
+          labels: |
+            org.opencontainers.image.version=${{ env.VERSION }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+          cache-from: type=gha
+
+      - uses: azure/setup-helm@v5
+        with:
+          version: ${{ env.HELM_VERSION }}
+      - name: Package and push the chart (OCI)
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "$TOKEN" | helm registry login ghcr.io -u "${{ github.actor }}" --password-stdin
+          helm package charts/north-lite --app-version "$VERSION" -d dist
+          helm push dist/north-lite-*.tgz "$CHART_REPO"
+
+      - name: GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" dist/north-lite-*.tgz \
+            --title "$GITHUB_REF_NAME" --generate-notes \
+            --notes "Image: \`$IMAGE:$VERSION\` · Chart: \`$CHART_REPO/north-lite\` (appVersion $VERSION)
+
+          Promote: set \`image.tag: \"$VERSION\"\` in deploy/release.yaml (PR). Rollback: revert that PR."
