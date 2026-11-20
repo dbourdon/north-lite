@@ -19,6 +19,7 @@ from north_lite.evals import (
     run_case,
     run_eval,
     summarize,
+    wait_until_ready,
 )
 from north_lite.fake import FakeLLMClient
 from north_lite.llm import ChatResponse, Document, Message
@@ -85,6 +86,22 @@ async def test_failing_case_is_recorded_not_fatal(client: httpx.AsyncClient) -> 
     [failed] = [r for r in report.results if r.error]
     assert failed.case_id == "q01" and "429" in (failed.error or "")
     assert not failed.retrieval_hit  # an error counts as a miss, never a pass
+
+
+async def test_wait_until_ready_returns_once_ready(client: httpx.AsyncClient) -> None:
+    assert await wait_until_ready(client, timeout_s=1, interval_s=0.01)
+
+
+async def test_wait_until_ready_times_out_when_not_ready() -> None:
+    app = create_app(Settings(backend="fake", _env_file=None))  # type: ignore[call-arg]
+    transport = httpx.ASGITransport(app=app)  # lifespan not run: /readyz stays 503
+    async with httpx.AsyncClient(transport=transport, base_url="http://t") as c:
+        assert not await wait_until_ready(c, timeout_s=0.05, interval_s=0.01)
+
+
+async def test_wait_until_ready_tolerates_nothing_listening() -> None:
+    async with httpx.AsyncClient(base_url="http://127.0.0.1:9") as c:  # discard port
+        assert not await wait_until_ready(c, timeout_s=0.05, interval_s=0.01)
 
 
 async def test_pacer_spaces_out_case_starts(client: httpx.AsyncClient) -> None:

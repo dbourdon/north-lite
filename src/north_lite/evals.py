@@ -223,6 +223,27 @@ def summarize(results: Sequence[CaseResult]) -> Report:
     )
 
 
+async def wait_until_ready(
+    client: httpx.AsyncClient, timeout_s: float, interval_s: float = 0.5
+) -> bool:
+    """Poll GET /readyz until it returns 200 or `timeout_s` passes.
+
+    Lets `serve & eval` (or a fresh port-forward) work without a hand-tuned sleep:
+    the service only reports ready once its search index is built.
+    """
+    loop = asyncio.get_running_loop()
+    deadline = loop.time() + timeout_s
+    while True:
+        try:
+            if (await client.get("/readyz")).status_code == 200:
+                return True
+        except httpx.TransportError:
+            pass  # not listening yet
+        if loop.time() >= deadline:
+            return False
+        await asyncio.sleep(interval_s)
+
+
 class Pacer:
     """At most one start every `interval_s` seconds, across all tasks.
 

@@ -43,6 +43,7 @@ async def _eval(args: argparse.Namespace) -> int:
         Simulator,
         format_report,
         load_cases,
+        wait_until_ready,
     )
     from north_lite.evals import run_eval as run
 
@@ -56,6 +57,9 @@ async def _eval(args: argparse.Namespace) -> int:
         else ScriptedSimulator()
     )
     async with httpx.AsyncClient(base_url=args.base_url, timeout=120) as client:
+        if not await wait_until_ready(client, args.wait_ready_s):
+            print(f"{args.base_url} not ready after {args.wait_ready_s:.0f}s (GET /readyz)")
+            return 2
         report = await run(
             client,
             sim,
@@ -97,6 +101,7 @@ def main() -> None:
         help="min seconds between case starts (~16 keeps a live run under 20 calls/min)",
     )
     e.add_argument("--limit", type=int, default=0, help="only the first N cases (0 = all)")
+    e.add_argument("--wait-ready-s", type=float, default=60, help="wait up to N s for GET /readyz")
     e.add_argument("--min-hit-rate", type=float, default=0.85)
     e.add_argument("--out", type=Path, help="write the full JSON report here")
     args = p.parse_args()
