@@ -1,6 +1,6 @@
 [project]
 name = "north-lite"
-version = "0.1.0"
+version = "0.1.1"
 description = "Mini North-style LLM service: typed Cohere client, Helm, flag-matrix CI, benchmarks"
 readme = "README.md"
 authors = [{ name = "Dave Bourdon" }]

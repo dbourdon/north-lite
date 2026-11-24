@@ -5,5 +5,5 @@ type: application
 # Chart version: bump on any chart change (ct enforces it on PRs).
 # appVersion: the application release; must equal pyproject.toml's version
 # (tests/test_chart.py checks). The release workflow packages with --app-version.
-version: 0.2.0
-appVersion: "0.1.0"
+version: 0.2.1
+appVersion: "0.1.1"
