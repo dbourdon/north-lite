@@ -9,7 +9,4 @@ image:
   tag: "0.1.0"
   pullPolicy: IfNotPresent
 
-# GHCR packages are private while the repo is. Each environment namespace needs a
-# docker-registry Secret named ghcr-pull (created out of band, never in git).
-imagePullSecrets:
-  - name: ghcr-pull
+# The GHCR image and chart are public, so no image pull secret is needed.
