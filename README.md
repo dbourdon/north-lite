@@ -16,7 +16,7 @@ gates, and a release process with real rollback.
 | Need | How it's done here |
 |---|---|
 | Environments with specific feature-flag combinations | One `values-flags-<profile>.yaml` per combination. CI creates a kind cluster per profile; Argo CD creates an Application per profile. Both discover the files, so a new file is a new environment |
-| Tests that don't depend on the LLM | `LLMClient` Protocol with a deterministic fake backend: 86 tests in ~3 s, no key, no quota |
+| Tests that don't depend on the LLM | `LLMClient` Protocol with a deterministic fake backend: 88 tests in ~4 s, no key, no quota |
 | Environments that verify themselves | A flag-aware `helm test` pod (also an Argo PostSync hook) checks the live service matches its profile; an egress test proves the air-gapped profile really can't reach the internet |
 | LLM quality in CI | Eval harness: a simulated user (scripted, or Command A+ with a persona) asks 20 questions; gate on retrieval hit rate ≥ 0.85 |
 | Performance regressions | k6 in every e2e environment; a TypeScript GitHub Action fails on p95 > +15% **and** > +20 ms vs a per-profile baseline |
@@ -56,7 +56,7 @@ flowchart LR
 ```bash
 git clone https://github.com/dbourdon/north-lite && cd north-lite
 uv sync
-uv run pytest -n auto                       # 86 offline tests
+uv run pytest -n auto                       # 88 offline tests
 NL_BACKEND=fake uv run north-lite serve &   # API docs: http://127.0.0.1:8000/docs
 uv run north-lite eval                      # simulated-user eval against it
 ```
