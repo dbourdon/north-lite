@@ -248,7 +248,6 @@ A live run costs ~100–140 calls (`docs/cohere-usage.md`).
 
 ```bash
 scripts/install-argocd.sh                 # Argo CD v3.6.2 into the current context
-scripts/argocd-connect-repo.sh            # read-only deploy key (while the repo is private)
 kubectl apply -f deploy/argocd/appset.yaml
 kubectl -n argocd get applications
 ```

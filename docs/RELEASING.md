@@ -59,5 +59,5 @@ delete a release tag; fix forward with a new patch version instead.
 - Release workflow: `.github/workflows/release.yaml`
 - Promotion point: `deploy/release.yaml` (read by `deploy/argocd/appset.yaml`)
 - Promotion gate: `release-pin` job in `.github/workflows/ci.yaml`
-- Private registry: real clusters need an image pull secret
-  (`imagePullSecrets` in the chart values) to pull from GHCR.
+- Registry: the GHCR image and chart are public. A private registry would need an
+  image pull secret (`imagePullSecrets` in the chart values).

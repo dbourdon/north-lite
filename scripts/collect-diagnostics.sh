@@ -22,7 +22,21 @@ mkdir -p "$out"
 } >"$out/overview.txt" 2>&1
 
 helm status "$ns" -n "$ns" ${3:+--kube-context "$3"} >"$out/helm-status.txt" 2>&1
-helm get values "$ns" -n "$ns" --all ${3:+--kube-context "$3"} >"$out/helm-values.yaml" 2>&1
+# Values can hold an inline apiKey.value (dev only): redact it, since diagnostics
+# are uploaded as CI artifacts.
+helm get values "$ns" -n "$ns" --all -o json ${3:+--kube-context "$3"} 2>&1 \
+  | python3 -c '
+import json, sys
+raw = sys.stdin.read()
+try:
+    v = json.loads(raw)
+except ValueError:
+    print(raw, end="")  # helm error text, not values
+    sys.exit()
+if (v.get("apiKey") or {}).get("value"):
+    v["apiKey"]["value"] = "<redacted>"
+print(json.dumps(v, indent=2))
+' >"$out/helm-values.json" 2>&1
 k describe pods >"$out/describe-pods.txt" 2>&1
 
 for pod in $(k get pods -o name 2>/dev/null); do
