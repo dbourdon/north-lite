@@ -62,6 +62,11 @@ Use Helm **v3**: v4 rejects the helm-unittest plugin.
   the new e2e check to branch protection.
 - **Releases are immutable.** Never re-push or delete a tag or image. Promotion and
   rollback are PRs to `deploy/release.yaml`. See `docs/RELEASING.md`.
+- **Never load a local build under a release tag** (e.g. `kind load docker-image`
+  of an image tagged `ghcr.io/dbourdon/north-lite:X.Y.Z`). Pods use
+  `pullPolicy: IfNotPresent`, so a cached local image silently shadows the published
+  one. Tag local builds `north-lite:dev`. After a promotion, check `GET /version`
+  shows the expected version **and** commit; the image tag alone proves nothing.
 - **Git:** never push to `main` (it's protected); work on a branch and open a PR.
   Ask before pushing. In a git worktree, symlink `.env` from the main checkout if
   you need the key.
