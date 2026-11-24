@@ -211,12 +211,17 @@ async def chat(
             headers={"Cache-Control": "no-cache"},
         )
 
+    # RAG retrieves on the latest user message, so there must be one.
+    question = next((m.content for m in reversed(req.messages) if m.role == "user"), None)
+    if req.rag and question is None:
+        raise HTTPException(400, "rag=true needs at least one user message")
+
     key = cache_key("chat", req, rerank=settings.feature_rerank)
     if settings.feature_cache and (cached := svc.chat_cache.get(key)) is not None:
         response.headers["X-Cache"] = "hit"
         return cached
     if req.rag:
-        question = next(m.content for m in reversed(req.messages) if m.role == "user")
+        assert question is not None  # checked above
         resp, docs = await svc.rag.answer(question, rerank=settings.feature_rerank)
         out = ChatOut(text=resp.text, citations=resp.citations, doc_ids=[d.id for d in docs])
     else:
@@ -265,7 +270,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # first request, instead of lazily on whichever request comes first.
     settings: Settings = app.state.settings
     llm = make_client(settings)
-    rag = MiniRAG(llm, load_docs(settings.docs_path))
+    rag = MiniRAG(llm, load_docs(settings.docs_path), embed_concurrency=settings.embed_concurrency)
     await rag.index()
     app.state.services = Services(llm=llm, rag=rag)
     yield
