@@ -26,14 +26,19 @@ def cosine(a: Sequence[float], b: Sequence[float]) -> float:
 
 
 class MiniRAG:
-    def __init__(self, client: LLMClient, docs: Sequence[Document]) -> None:
+    def __init__(
+        self, client: LLMClient, docs: Sequence[Document], *, embed_concurrency: int = 4
+    ) -> None:
         self._client = client
         self._docs = list(docs)
+        self._embed_concurrency = embed_concurrency
         self._vectors: list[list[float]] = []
 
     async def index(self) -> None:
         texts = [f"{d.title}\n{d.text}" for d in self._docs]
-        self._vectors = await embed_many(self._client, texts, "search_document")
+        self._vectors = await embed_many(
+            self._client, texts, "search_document", max_concurrency=self._embed_concurrency
+        )
 
     @property
     def ready(self) -> bool:

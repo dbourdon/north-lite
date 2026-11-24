@@ -223,3 +223,11 @@ async def test_upstream_llm_errors_are_not_500s(
 
 async def test_unknown_decision_is_rejected(client: httpx.AsyncClient) -> None:
     assert (await client.post("/approvals/abc/maybe")).status_code == 422
+
+
+async def test_rag_chat_without_user_message_is_400(client: httpx.AsyncClient) -> None:
+    r = await client.post(
+        "/chat", json={"messages": [{"role": "system", "content": "be brief"}], "rag": True}
+    )
+    assert r.status_code == 400
+    assert "user message" in r.json()["detail"]
