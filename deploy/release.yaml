@@ -5,8 +5,8 @@
 # Release images are tagged with the bare version (0.1.0), matching appVersion.
 image:
   repository: ghcr.io/dbourdon/north-lite
-  # v0.1.0: https://github.com/dbourdon/north-lite/releases/tag/v0.1.0
-  tag: "0.1.0"
+  # v0.1.1: https://github.com/dbourdon/north-lite/releases/tag/v0.1.1
+  tag: "0.1.1"
   pullPolicy: IfNotPresent
 
 # The GHCR image and chart are public, so no image pull secret is needed.
